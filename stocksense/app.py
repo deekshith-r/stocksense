@@ -6,8 +6,9 @@ import datetime
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
+import requests
+from bs4 import BeautifulSoup
+import random
 
 # Cache data fetching functions to improve performance
 @st.cache_data
@@ -25,6 +26,36 @@ def fetch_stock_info(ticker):
     volume = info.get('regularMarketVolume', 'N/A')
     beta = info.get('beta', 'N/A')
     return current_price, industry, volume, beta
+
+# Scrape real-time news from Yahoo Finance
+def fetch_news(ticker):
+    url = f"https://finance.yahoo.com/quote/{ticker}/news?p={ticker}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, "html.parser")
+    
+    news_items = []
+    for item in soup.find_all("li", class_="js-stream-content Pos(r)"):
+        title = item.find("h3").text if item.find("h3") else "No title available"
+        link = item.find("a")["href"] if item.find("a") else "#"
+        if not link.startswith("http"):
+            link = "https://finance.yahoo.com" + link
+        news_items.append({"title": title, "link": link})
+    
+    return news_items[:5]  # Return top 5 news articles
+
+# Fallback random financial news and insights
+def fetch_random_news():
+    random_news = [
+        {"title": "Stock Market Hits All-Time High", "link": "https://finance.yahoo.com"},
+        {"title": "Tech Stocks Rally Amid Earnings Season", "link": "https://finance.yahoo.com"},
+        {"title": "Federal Reserve Hints at Rate Cuts", "link": "https://finance.yahoo.com"},
+        {"title": "Global Markets React to Geopolitical Tensions", "link": "https://finance.yahoo.com"},
+        {"title": "Energy Sector Surges as Oil Prices Climb", "link": "https://finance.yahoo.com"},
+    ]
+    return random.sample(random_news, min(5, len(random_news)))  # Return random 5 news items
 
 # Risk analysis
 def calculate_risk(data, ticker):
@@ -168,9 +199,10 @@ def generate_prediction_graph(future_dates, predictions, chart_type, theme):
         fig.add_trace(go.Scatter(
             x=future_dates, 
             y=predictions, 
-            mode='lines',
+            mode='lines+markers',
             name="Predicted Price",
-            line=dict(color='orange', width=2)
+            line=dict(color='orange', width=2, dash='dot'),
+            marker=dict(size=8, color='red', symbol='circle-open')
         ))
     elif chart_type == "Candlestick":
         fig = go.Figure(data=[go.Candlestick(
@@ -389,6 +421,22 @@ def main():
                         <p>{sentiment['comment']}</p>
                     </div>
                 """, unsafe_allow_html=True)
+
+                # Real-Time News Section (Only if enabled)
+                if real_time_update:
+                    st.subheader("📰 Real-Time News & Insights")
+                    news = fetch_news(ticker)
+                    if not news:  # If no news is found, fetch random news
+                        news = fetch_random_news()
+                        st.warning("No specific news found for this ticker. Here are some general financial insights:")
+                    
+                    for article in news:
+                        st.markdown(f"""
+                            <div class="glass-card fade-in">
+                                <h4>{article['title']}</h4>
+                                <p><a href="{article['link']}" target="_blank">Read more</a></p>
+                            </div>
+                        """, unsafe_allow_html=True)
 
         except Exception as e:
             st.error(f"An error occurred: {e}")
