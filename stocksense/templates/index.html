@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockSense - Predict Stock Prices</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        /* Glassmorphism effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Floating animation */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Blinking animation */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .blink-slow {
+            animation: blink 2s infinite;
+        }
+
+        /* Additional styling */
+        .info-section {
+            margin-top: 40px;
+            text-align: center;
+        }
+        .info-section h2 {
+            color: #00aaff;
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        .info-section p {
+            font-size: 1.1rem;
+            color: #ddd;
+        }
+
+        /* Ticker results styling */
+        #ticker-results {
+            margin-top: 10px;
+        }
+        .ticker-result-item {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+        }
+        .ticker-result-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Top Gainers/Losers styling */
+        .top-stocks {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+        }
+        .top-stocks .glass {
+            width: 48%;
+            padding: 20px;
+        }
+        .top-stocks h3 {
+            color: #00aaff;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        .top-stocks table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .top-stocks th, .top-stocks td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .top-stocks th {
+            background: rgba(0, 170, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <div class="container glass floating">
+            <h1>StockSense 📈</h1>
+            <p>Enter a stock ticker to predict future prices.</p>
+            <form action="/predict" method="post">
+                <input type="text" name="ticker" placeholder="Enter Ticker Symbol (e.g., AAPL)" required>
+                <input type="number" name="days" placeholder="Days to Predict (1-365)" min="1" max="365" required>
+                <button type="submit">Predict</button>
+            </form>
+
+            <!-- Ticker Lookup Section -->
+            <div class="ticker-lookup" style="margin-top: 20px;">
+                <h3>Don't know the ticker symbol?</h3>
+                <input type="text" id="company_name" placeholder="Enter Company Name">
+                <button onclick="lookupTicker()">Find Ticker</button>
+                <div id="ticker-results"></div>
+            </div>
+        </div>
+
+        <!-- Top Gainers and Losers Section -->
+        <div class="top-stocks">
+            <div class="glass">
+                <h3 class="blink-slow">Top Gainers 📈</h3>
+                <table id="top-gainers">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Price</th>
+                            <th>Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Top Gainers data will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="glass">
+                <h3 class="blink-slow">Top Losers 📉</h3>
+                <table id="top-losers">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Price</th>
+                            <th>Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Top Losers data will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Additional Info Section -->
+        <div class="info-section glass">
+            <h2>Why Use StockSense?</h2>
+            <p>
+                StockSense helps you predict future stock prices with advanced algorithms. 
+                Whether you're a seasoned investor or just starting out, our tools provide 
+                valuable insights to make informed decisions.
+            </p>
+            <p>
+                Enter a stock ticker above to get started, or use the Ticker Lookup feature 
+                to find the symbol for any company.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const apiKey = 'SEH5868RXTZW5ZHU'; // Replace with your Alpha Vantage API key
+
+        // Ticker Lookup Function
+        async function lookupTicker() {
+            const companyName = document.getElementById('company_name').value;
+            const url = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${companyName}&apikey=${apiKey}`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                // Debugging: Log the API response
+                console.log(data);
+
+                // Clear previous results
+                const resultsContainer = document.getElementById('ticker-results');
+                resultsContainer.innerHTML = '';
+
+                // Check if the API returned valid data
+                if (data.bestMatches && data.bestMatches.length > 0) {
+                    // Display all matching results
+                    data.bestMatches.forEach(match => {
+                        const symbol = match['1. symbol'];
+                        const name = match['2. name'];
+                        const region = match['4. region'];
+
+                        // Create a result item
+                        const resultItem = document.createElement('div');
+                        resultItem.className = 'ticker-result-item glass';
+                        resultItem.innerHTML = `
+                            <strong>${symbol}</strong> - ${name} (${region})
+                        `;
+
+                        // Add click event to select the ticker
+                        resultItem.addEventListener('click', () => {
+                            document.getElementById('company_name').value = name;
+                            document.getElementById('ticker-results').innerHTML = `Selected Ticker: <strong>${symbol}</strong>`;
+                        });
+
+                        resultsContainer.appendChild(resultItem);
+                    });
+                } else {
+                    resultsContainer.innerHTML = 'No matching tickers found.';
+                }
+            } catch (error) {
+                console.error('Error fetching ticker symbol:', error);
+                document.getElementById('ticker-results').innerHTML = 'Error fetching ticker symbol.';
+            }
+        }
+
+        // Fetch Top Gainers and Losers
+        async function fetchTopStocks() {
+            const url = `https://www.alphavantage.co/query?function=TOP_GAINERS_LOSERS&apikey=${apiKey}`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                // Debugging: Log the API response
+                console.log(data);
+
+                // Populate Top Gainers
+                const topGainers = data.top_gainers || [];
+                const gainersTable = document.getElementById('top-gainers').getElementsByTagName('tbody')[0];
+                gainersTable.innerHTML = '';
+                topGainers.slice(0, 5).forEach(stock => {
+                    const row = gainersTable.insertRow();
+                    row.innerHTML = `
+                        <td>${stock.ticker}</td>
+                        <td>${stock.price}</td>
+                        <td style="color: green;">+${stock.change_percentage}</td>
+                    `;
+                });
+
+                // Populate Top Losers
+                const topLosers = data.top_losers || [];
+                const losersTable = document.getElementById('top-losers').getElementsByTagName('tbody')[0];
+                losersTable.innerHTML = '';
+                topLosers.slice(0, 5).forEach(stock => {
+                    const row = losersTable.insertRow();
+                    row.innerHTML = `
+                        <td>${stock.ticker}</td>
+                        <td>${stock.price}</td>
+                        <td style="color: red;">${stock.change_percentage}</td>
+                    `;
+                });
+            } catch (error) {
+                console.error('Error fetching top stocks:', error);
+            }
+        }
+
+        // Fetch top stocks on page load
+        fetchTopStocks();
+    </script>
+</body>
+</html>
