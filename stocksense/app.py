@@ -69,20 +69,53 @@ def sentiment_analysis(current_price, predicted_price):
         return {
             "recommendation": "Buy 🚀",
             "comment": "The stock is expected to rise! A great time to invest.",
-            "color": "green"
+            "color": "green",
+            "positive": 70,  # Positive sentiment percentage
+            "neutral": 20,   # Neutral sentiment percentage
+            "negative": 10   # Negative sentiment percentage
         }
     elif predicted_price < current_price:
         return {
             "recommendation": "Sell 🔴",
             "comment": "The stock is expected to drop. Consider selling.",
-            "color": "red"
+            "color": "red",
+            "positive": 10,  # Positive sentiment percentage
+            "neutral": 20,   # Neutral sentiment percentage
+            "negative": 70   # Negative sentiment percentage
         }
     else:
         return {
             "recommendation": "Hold 🟠",
             "comment": "The stock is expected to remain stable. Hold your position.",
-            "color": "orange"
+            "color": "orange",
+            "positive": 20,  # Positive sentiment percentage
+            "neutral": 70,   # Neutral sentiment percentage
+            "negative": 10   # Negative sentiment percentage
         }
+
+# Generate sentiment pie chart
+def generate_sentiment_pie_chart(sentiment):
+    labels = ["Positive", "Neutral", "Negative"]
+    values = [sentiment["positive"], sentiment["neutral"], sentiment["negative"]]
+    colors = ["#00cc96", "#ffa15a", "#ef553b"]  # New color scheme
+
+    fig = go.Figure(data=[go.Pie(
+        labels=labels,
+        values=values,
+        hole=0.4,  # Creates a donut chart
+        marker=dict(colors=colors),
+        textinfo="percent+label",
+        hoverinfo="label+percent",
+        pull=[0.1, 0, 0]  # Pull the "Positive" slice for animation
+    )])
+
+    fig.update_layout(
+        title="Sentiment Analysis",
+        showlegend=False,
+        annotations=[dict(text="Sentiment", x=0.5, y=0.5, font_size=20, showarrow=False)]
+    )
+
+    return fig
 
 # Predict stock prices using selected model
 def predict_stock_prices(data, days, model_type):
@@ -129,16 +162,7 @@ def predict_stock_prices(data, days, model_type):
     return future_dates, predictions
 
 # Generate historical stock price graph
-def generate_graph(data, chart_type, theme):
-    if theme == "Dark Mode":
-        template = "plotly_dark"
-    elif theme == "Light Mode":
-        template = "plotly_white"
-    elif theme == "Seaborn":
-        template = "seaborn"
-    else:
-        template = "plotly"
-
+def generate_graph(data, chart_type):
     if chart_type == "Line Chart":
         fig = go.Figure()
         fig.add_trace(go.Scatter(
@@ -177,23 +201,14 @@ def generate_graph(data, chart_type, theme):
         title="Stock Price Over Time",
         xaxis_title="Date",
         yaxis_title="Close Price (USD)",
-        template=template,
+        template="plotly_dark",  # Default dark theme
         hovermode="x unified"
     )
     
     return fig
 
 # Generate predicted stock price graph
-def generate_prediction_graph(future_dates, predictions, chart_type, theme):
-    if theme == "Dark Mode":
-        template = "plotly_dark"
-    elif theme == "Light Mode":
-        template = "plotly_white"
-    elif theme == "Seaborn":
-        template = "seaborn"
-    else:
-        template = "plotly"
-
+def generate_prediction_graph(future_dates, predictions, chart_type):
     if chart_type == "Line Chart":
         fig = go.Figure()
         fig.add_trace(go.Scatter(
@@ -233,7 +248,77 @@ def generate_prediction_graph(future_dates, predictions, chart_type, theme):
         title="Predicted Stock Prices for Upcoming Days",
         xaxis_title="Date",
         yaxis_title="Predicted Close Price (USD)",
-        template=template,
+        template="plotly_dark",  # Default dark theme
+        hovermode="x unified"
+    )
+    
+    return fig
+
+# Generate combined graph (historical + predicted)
+def generate_combined_graph(data, future_dates, predictions, chart_type):
+    fig = go.Figure()
+
+    if chart_type == "Line Chart":
+        # Add historical data
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=data["Close"],
+            mode='lines',
+            name="Historical Price",
+            line=dict(color='royalblue', width=2)
+        ))
+
+        # Add predicted data
+        fig.add_trace(go.Scatter(
+            x=future_dates,
+            y=predictions,
+            mode='lines+markers',
+            name="Predicted Price",
+            line=dict(color='orange', width=2, dash='dot'),
+            marker=dict(size=8, color='red', symbol='circle-open')
+        ))
+
+    elif chart_type == "Candlestick":
+        # Combine historical and predicted data for candlestick
+        combined_dates = list(data.index) + future_dates
+        combined_prices = list(data["Close"]) + list(predictions)
+        fig.add_trace(go.Candlestick(
+            x=combined_dates,
+            open=combined_prices,
+            high=combined_prices,
+            low=combined_prices,
+            close=combined_prices,
+            name="Combined Prices"
+        ))
+
+    elif chart_type == "OHLC":
+        # Combine historical and predicted data for OHLC
+        combined_dates = list(data.index) + future_dates
+        combined_prices = list(data["Close"]) + list(predictions)
+        fig.add_trace(go.Ohlc(
+            x=combined_dates,
+            open=combined_prices,
+            high=combined_prices,
+            low=combined_prices,
+            close=combined_prices,
+            name="Combined Prices"
+        ))
+
+    elif chart_type == "Bar Chart":
+        # Combine historical and predicted data for bar chart
+        combined_dates = list(data.index) + future_dates
+        combined_prices = list(data["Close"]) + list(predictions)
+        fig.add_trace(go.Bar(
+            x=combined_dates,
+            y=combined_prices,
+            name="Combined Prices"
+        ))
+
+    fig.update_layout(
+        title="Combined Historical and Predicted Prices",
+        xaxis_title="Date",
+        yaxis_title="Price (USD)",
+        template="plotly_dark",  # Default dark theme
         hovermode="x unified"
     )
     
@@ -252,6 +337,20 @@ def main():
             }
             .fade-in {
                 animation: fadeIn 1s ease-in-out;
+            }
+            @keyframes slideInLeft {
+                from { opacity: 0; transform: translateX(-50px); }
+                to { opacity: 1; transform: translateX(0); }
+            }
+            .slide-in-left {
+                animation: slideInLeft 1s ease-in-out;
+            }
+            @keyframes slideInRight {
+                from { opacity: 0; transform: translateX(50px); }
+                to { opacity: 1; transform: translateX(0); }
+            }
+            .slide-in-right {
+                animation: slideInRight 1s ease-in-out;
             }
             .glass-card {
                 background: rgba(255, 255, 255, 0.1);
@@ -326,7 +425,6 @@ def main():
         days = st.number_input("Days to Predict (1-365)", min_value=1, max_value=365, value=30)
         model_type = st.selectbox("Select Prediction Model", ["Polynomial Regression", "Linear Regression", "ARIMA"])
         chart_type = st.selectbox("Select Chart Type", ["Line Chart", "Candlestick", "OHLC", "Bar Chart"])
-        theme = st.selectbox("Select Graph Theme", ["Dark Mode", "Light Mode", "Seaborn", "Plotly Default"])
         real_time_update = st.checkbox("Enable Real-time Data Updates")
 
         if st.button("Predict"):
@@ -400,7 +498,7 @@ def main():
 
                 # Historical Stock Price Chart
                 st.subheader("📈 Historical Stock Price Chart")
-                st.plotly_chart(generate_graph(data, chart_type, theme), use_container_width=True)
+                st.plotly_chart(generate_graph(data, chart_type), use_container_width=True)
 
                 # Predicted Stock Prices
                 st.subheader("🔮 Predicted Stock Prices")
@@ -411,7 +509,11 @@ def main():
 
                 # Prediction Graph
                 st.subheader("📊 Prediction Graph")
-                st.plotly_chart(generate_prediction_graph(future_dates, predictions, chart_type, theme), use_container_width=True)
+                st.plotly_chart(generate_prediction_graph(future_dates, predictions, chart_type), use_container_width=True)
+
+                # Combined Historical and Predicted Graph
+                st.subheader("📊 Combined Historical and Predicted Prices")
+                st.plotly_chart(generate_combined_graph(data, future_dates, predictions, chart_type), use_container_width=True)
 
                 # Sentiment Analysis
                 st.subheader("🎯 Recommendation")
@@ -421,6 +523,10 @@ def main():
                         <p>{sentiment['comment']}</p>
                     </div>
                 """, unsafe_allow_html=True)
+
+                # Sentiment Score Pie Chart
+                st.subheader("📊 Sentiment Score")
+                st.plotly_chart(generate_sentiment_pie_chart(sentiment), use_container_width=True)
 
                 # Real-Time News Section (Only if enabled)
                 if real_time_update:
