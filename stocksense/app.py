@@ -585,8 +585,8 @@ def main():
         <div class="center-text">
             <h1>StockSense - Predict Stock Prices 📈</h1>
             <p style="font-size: 18px;">
-                🔍 Analyze Any Stock
-        Enter a stock symbol and date range to begin analysis
+                🔍 Analyze Any Stock</p>
+        <p>Enter a stock symbol and date range to begin analysis
             </p>
         </div>
     """, unsafe_allow_html=True)
